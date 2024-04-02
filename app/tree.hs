@@ -18,7 +18,7 @@ newtype St s a = St { runState:: s -> (a, s)}
 -- state = St
 
 instance Functor (St s) where
-    fmap f (St rs) = St (\s -> let (a, s') = rs s in (f a, s'))
+    fmap f (St sfn) = St (\s -> let (a, s') = sfn s in (f a, s'))
 
 instance Applicative (St s) where
     pure a = St $ \s -> (a,s)
@@ -29,7 +29,7 @@ instance Applicative (St s) where
 
 instance Monad (St s) where
     return = pure
-    (St rs) >>= f = St $ \s -> case rs s of
+    (St sfn) >>= f = St $ \s -> case sfn s of
         (a, s') -> runState (f a) s'
 
 fresh :: St Int Int
