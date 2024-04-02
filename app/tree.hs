@@ -1,5 +1,5 @@
 
-import Data.Functor.Identity
+-- import Data.Functor.Identity
 
 data Tree a = Leaf a | Node (Tree a) (Tree a) deriving Show
 
@@ -7,38 +7,79 @@ labels :: Tree a -> [a]
 labels (Leaf l) = [l]
 labels (Node l r) = labels l ++ labels r
 
-newtype ST s m a = ST { runStateT:: s -> m (a, s)}
+instance Functor Tree where
+    fmap f (Leaf l) = Leaf $ f l
+    fmap f (Node l r) = Node (fmap f l) (fmap f r)
 
-instance (Functor m) => Functor (ST s m) where
-    fmap f m = ST (\s -> fmap (\ ~(a, s') -> (f a, s')) $ runStateT m s)
+newtype St s a = St { runState:: s -> (a, s)}
 
-instance (Functor m, Monad m) => Applicative (ST s m) where
-    pure a = ST $ \ s -> return (a, s)
-    {-# INLINE pure #-}
-    ST mf <*> ST mx = ST $ \ s -> do
-        ~(f, s') <- mf s
-        ~(x, s'') <- mx s'
-        return (f x, s'')
-    {-# INLINE (<*>) #-}
-    m *> k = m >>= \_ -> k
-    {-# INLINE (*>) #-}
+-- NOTE: Not needed
+-- state :: (s -> (a, s)) -> St s a
+-- state = St
 
-instance Monad m => Monad (ST s m) where
-    -- return :: a -> ST s a
-    return v = ST (\s -> return (v, s))
-    -- (>>=) :: ST s a -> (a -> ST s b) -> ST s b
-    (ST rs) >>= f = ST $ \s -> do
-        (v,s') <- rs s
-        runStateT (f v) s'
+instance Functor (St s) where
+    fmap f (St rs) = St (\s -> let (a, s') = rs s in (f a, s'))
 
-fresh :: Monad m => ST Int m Int
-fresh = \n
-    \n -> return (n, n + 1)
+instance Applicative (St s) where
+    pure a = St $ \s -> (a,s)
+    St sf <*> St sx = St $ \s ->
+        let (f, s') = sf s
+            (x, s'') = sx s'
+        in (f x, s'')
+
+instance Monad (St s) where
+    return = pure
+    (St rs) >>= f = St $ \s -> case rs s of
+        (a, s') -> runState (f a) s'
+
+fresh :: St Int Int
+fresh = St (\n -> (n, n + 1))
+
+freshDown :: St Int Int
+freshDown = St (\n -> (n, n - 1))
+
+label :: Tree a -> St Int (Tree Int)
+label (Leaf x) = do n <- fresh
+                    return (Leaf n)
+label (Node l r) = do l' <- label l
+                      r' <- label r
+                      return (Node l' r')
+
+labelWith :: Tree a -> St Int Int -> St Int (Tree Int)
+labelWith (Leaf x) lf = do n <- lf
+                           return (Leaf n)
+labelWith (Node l r) lf = do l' <- labelWith l lf
+                             r' <- labelWith r lf
+                             return (Node l' r')
 
 main :: IO ()
 main = do
-    let intTree = Node (Leaf 1) (Node (Leaf 2) (Leaf 3))
+    -- Just testing out St (my State)
+    let st = St (\s -> (s,s+1))
+    let newState = runState st 0
+    putStrLn $ "Initial state: " ++ show newState
+    let nextState = runState st $ snd newState
+    putStrLn $ "Next state: " ++ show nextState
 
-    print intTree
+    -- Create a float tree
+    let floatTree = Node (Leaf 1.0) (Node (Leaf 2.0) (Leaf 3.0))
 
-    print $ labels intTree
+    -- Show it and via labels
+    putStrLn $ "Float tree: " ++ show floatTree
+    putStrLn $ "    labels: " ++ show (labels floatTree)
+
+    -- Use fmap to double it
+    let doubledTree = fmap (*2) floatTree
+    putStrLn $ "Doubled   : " ++ show doubledTree
+
+    putStrLn "\nLabelling Tree"
+    let newTreeState = runState (label floatTree) 100
+
+    print $ fst newTreeState
+    print $ snd newTreeState
+
+    putStrLn "\nLabelling Tree with 'freshDown"
+    let newTreeState = runState (labelWith floatTree freshDown) 100
+
+    print $ fst newTreeState
+    print $ snd newTreeState
