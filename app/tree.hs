@@ -78,7 +78,7 @@ main = do
     print $ fst newTreeState
     print $ snd newTreeState
 
-    putStrLn "\nLabelling Tree with 'freshDown"
+    putStrLn "\nLabelling Tree with 'freshDown'"
     let newTreeState = runState (labelWith floatTree freshDown) 100
 
     print $ fst newTreeState
