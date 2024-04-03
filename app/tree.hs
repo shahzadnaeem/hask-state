@@ -13,9 +13,8 @@ instance Functor Tree where
 
 newtype St s a = St { runState:: s -> (a, s)}
 
--- NOTE: Not needed
--- state :: (s -> (a, s)) -> St s a
--- state = St
+state :: (s -> (a, s)) -> St s a
+state = St
 
 instance Functor (St s) where
     fmap f (St sfn) = St (\s -> let (a, s') = sfn s in (f a, s'))

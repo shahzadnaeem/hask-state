@@ -35,6 +35,7 @@ roll = do
 
 printGame :: GameState -> IO ()
 printGame gs = do
+    putStrLn ""
     putStrLn $ "Players:   " ++ show (players gs)
     putStrLn $ "Cards:     " ++ show (cards gs)
     putStrLn $ "Rolls:     " ++ show (rolls gs)
@@ -42,9 +43,8 @@ printGame gs = do
 
 type TurnFn = GameState -> ((Int,Int), GameState)
 
--- ETA reduced
 turn :: TurnFn
-turn = runState roll
+turn gs = runState roll gs
 
 multiturn :: Int -> GameState -> TurnFn -> ([(Int,Int)], GameState)
 multiturn n gs f =
@@ -63,9 +63,10 @@ showHistogram m = do
     let mx = maximum vals
     let tot = sum vals
     putStrLn $ "\nHistogram has " ++ show (length vals) ++ " elements"
-    putStrLn $ "Max value is " ++ show mx ++ " of " ++ show tot ++ " turns\n"
+    putStrLn $ "Max value is " ++ show mx ++ " of " ++ show tot ++ " turns"
     let rows = 10
-    mapM_ putStrLn [ [if v >= (mx * (rows - row) `div` rows) then '*' else ' ' | v <- vals ] | row <- [0..rows] ]
+    mapM_ putStrLn [ [if v > (mx * (rows - row) `div` rows) then '*' else ' ' | v <- vals ] | row <- [0..rows] ]
+    putStrLn $ replicate (length vals) '-'
 
 main :: IO ()
 main = do
@@ -85,6 +86,12 @@ main = do
     -- print result
 
     showHistogram $ histogram finalGameState
-
     printGame finalGameState
+
+    -- One more turn
+    let (_, ultimateGameState) = turn finalGameState
+
+    showHistogram $ histogram ultimateGameState
+    printGame ultimateGameState
+
     return ()
